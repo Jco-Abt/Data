@@ -1,42 +1,42 @@
 import pyodbc
 
-SERVER = "NOMBRE_SERVIDOR"
-DATABASE = "NOMBRE_BASE_DATOS"
-USERNAME = "TU_USUARIO"
-
-# Solicitar contraseña sin mostrarla en pantalla
-from getpass import getpass
-PASSWORD = getpass("Ingresa tu contraseña SQL: ")
-
-connection_string = (
-    "DRIVER={ODBC Driver 18 for SQL Server};"
-    f"SERVER={SERVER};"
-    f"DATABASE={DATABASE};"
-    f"UID={USERNAME};"
-    f"PWD={PASSWORD};"
-    "Encrypt=yes;"
-    "TrustServerCertificate=no;"
-)
+conn = pyodbc.connect(connection_string)
+cursor = conn.cursor()
 
 try:
-    conn = pyodbc.connect(connection_string, timeout=15)
-
-    cursor = conn.cursor()
     cursor.execute("""
-        SELECT
-            @@VERSION,
-            DB_NAME(),
-            SUSER_SNAME()
+        CREATE TABLE dbo.PruebaCargaPython (
+            ID INT NOT NULL,
+            DESCRIPCION VARCHAR(100)
+        )
     """)
 
-    result = cursor.fetchone()
+    datos = [
+        (i, f"Registro de prueba {i}")
+        for i in range(1, 101)
+    ]
 
-    print("CONEXIÓN EXITOSA")
-    print("Base de datos:", result[1])
-    print("Usuario conectado:", result[2])
+    cursor.fast_executemany = True
 
+    cursor.executemany("""
+        INSERT INTO dbo.PruebaCargaPython
+        (ID, DESCRIPCION)
+        VALUES (?, ?)
+    """, datos)
+
+    conn.commit()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM dbo.PruebaCargaPython
+    """)
+
+    print("Registros insertados:", cursor.fetchone()[0])
+
+except Exception as e:
+    conn.rollback()
+    print("Error:", e)
+
+finally:
+    cursor.close()
     conn.close()
-
-except pyodbc.Error as error:
-    print("ERROR DE CONEXIÓN:")
-    print(error)
