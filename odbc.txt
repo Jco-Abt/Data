@@ -1,1 +1,34 @@
 ['SQL Server', 'ODBC Driver 17 for SQL Server', 'ODBC Driver 18 for SQL Server', 'Microsoft Access Driver (*.mdb, *.accdb)', 'Microsoft Excel Driver (*.xls, *.xlsx, *.xlsm, *.xlsb)', 'Microsoft Access Text Driver (*.txt, *.csv)', 'Microsoft Access dBASE Driver (*.dbf, *.ndx, *.mdx)']
+
+import pyodbc
+
+SERVER = "NOMBRE_SERVIDOR"
+DATABASE = "NOMBRE_BASE_DATOS"
+
+connection_string = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    f"SERVER={SERVER};"
+    f"DATABASE={DATABASE};"
+    "Trusted_Connection=yes;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=no;"
+)
+
+try:
+    conn = pyodbc.connect(connection_string, timeout=15)
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT @@VERSION, DB_NAME(), SUSER_SNAME()")
+
+    result = cursor.fetchone()
+
+    print("CONEXIÓN EXITOSA")
+    print("SQL Server:", result[0])
+    print("Base de datos:", result[1])
+    print("Usuario:", result[2])
+
+    conn.close()
+
+except pyodbc.Error as error:
+    print("ERROR DE CONEXIÓN:")
+    print(error)
