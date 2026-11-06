@@ -1,64 +1,133 @@
-import time
+
 import pyodbc
+import time
+
+# Utiliza la connection_string que ya validamos.
+# Si no está definida en tu sesión, vuelve a ejecutar
+# el bloque de conexión anterior.
 
 conn = pyodbc.connect(connection_string, timeout=30)
 cursor = conn.cursor()
 
+nombre_tabla = "dbo.PruebaCarga1M"
+
+# Evitar sobrescribir una tabla de pruebas existente
+cursor.execute("""
+    IF OBJECT_ID('dbo.PruebaCarga1M', 'U') IS NOT NULL
+        THROW 50001, 'La tabla de prueba ya existe.', 1;
+
+    CREATE TABLE dbo.PruebaCarga1M (
+        ID_REGISTRO BIGINT NOT NULL,
+        AUDIT_ID INT NOT NULL,
+        IDPERIODO INT NOT NULL,
+        BRICK_COD VARCHAR(20) NOT NULL,
+        PACKS VARCHAR(30) NOT NULL,
+        SOLES DECIMAL(18,4),
+        USD_IQVIA DECIMAL(18,4),
+        UN DECIMAL(18,4),
+        UNCTA DECIMAL(18,4),
+        USD_CORPORATIVO DECIMAL(18,4)
+    );
+""")
+conn.commit()
+
+cursor.fast_executemany = True
+
+total_registros = 1_000_000
+tamano_lote = 5_000
+
+inicio = time.perf_counter()
+insertados = 0
+
 try:
-    cursor.execute("""
-        CREATE TABLE dbo.PruebaCarga100K (
-            ID INT NOT NULL,
-            DESCRIPCION VARCHAR(100)
-        )
-    """)
 
-    cursor.fast_executemany = True
-
-    total_registros = 100_000
-    tamano_lote = 5_000
-
-    inicio = time.perf_counter()
-
-    for inicio_lote in range(1, total_registros + 1, tamano_lote):
+    for inicio_lote in range(
+        1,
+        total_registros + 1,
+        tamano_lote
+    ):
 
         fin_lote = min(
             inicio_lote + tamano_lote,
             total_registros + 1
         )
 
-        datos = [
-            (i, f"Registro de prueba {i}")
-            for i in range(inicio_lote, fin_lote)
-        ]
+        datos = []
+
+        for i in range(inicio_lote, fin_lote):
+
+            periodo = ((i - 1) % 60) + 1
+            brick = ((i - 1) % 588) + 1
+            packs = ((i - 1) % 15985) + 100000
+
+            soles = float((i % 50000) + 100)
+            usd_iqvia = soles / 3.70
+            unidades = float((i % 1000) + 1)
+            uncta = unidades * 1.5
+            usd_corporativo = soles / 3.65
+
+            datos.append((
+                i,
+                1,
+                periodo,
+                str(brick),
+                str(packs),
+                soles,
+                usd_iqvia,
+                unidades,
+                uncta,
+                usd_corporativo
+            ))
 
         cursor.executemany("""
-            INSERT INTO dbo.PruebaCarga100K
-            (ID, DESCRIPCION)
-            VALUES (?, ?)
+            INSERT INTO dbo.PruebaCarga1M (
+                ID_REGISTRO,
+                AUDIT_ID,
+                IDPERIODO,
+                BRICK_COD,
+                PACKS,
+                SOLES,
+                USD_IQVIA,
+                UN,
+                UNCTA,
+                USD_CORPORATIVO
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, datos)
 
-    conn.commit()
+        # Confirmar cada lote
+        conn.commit()
+
+        insertados += len(datos)
+
+        if insertados % 100000 == 0:
+            print(f"Procesados: {insertados:,}")
 
     tiempo = time.perf_counter() - inicio
 
     cursor.execute("""
-        SELECT COUNT(*)
-        FROM dbo.PruebaCarga100K
+        SELECT
+            COUNT(*) AS REGISTROS,
+            SUM(SOLES) AS TOTAL_SOLES
+        FROM dbo.PruebaCarga1M
     """)
 
-    cantidad = cursor.fetchone()[0]
+    resultado = cursor.fetchone()
 
-    print("Registros insertados:", cantidad)
+    print("\n========== RESULTADOS ==========")
+    print("Registros insertados:", f"{resultado[0]:,}")
+    print("Total SOLES:", resultado[1])
     print("Tiempo total:", round(tiempo, 2), "segundos")
     print(
         "Velocidad:",
-        round(cantidad / tiempo, 0),
+        round(insertados / tiempo, 2),
         "registros/segundo"
     )
 
 except Exception as error:
     conn.rollback()
-    print("Error:", error)
+    print("ERROR DURANTE LA CARGA:")
+    print(error)
 
 finally:
     cursor.close()
