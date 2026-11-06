@@ -1,41 +1,64 @@
+import time
 import pyodbc
 
-conn = pyodbc.connect(connection_string)
+conn = pyodbc.connect(connection_string, timeout=30)
 cursor = conn.cursor()
 
 try:
     cursor.execute("""
-        CREATE TABLE dbo.PruebaCargaPython (
+        CREATE TABLE dbo.PruebaCarga100K (
             ID INT NOT NULL,
             DESCRIPCION VARCHAR(100)
         )
     """)
 
-    datos = [
-        (i, f"Registro de prueba {i}")
-        for i in range(1, 101)
-    ]
-
     cursor.fast_executemany = True
 
-    cursor.executemany("""
-        INSERT INTO dbo.PruebaCargaPython
-        (ID, DESCRIPCION)
-        VALUES (?, ?)
-    """, datos)
+    total_registros = 100_000
+    tamano_lote = 5_000
+
+    inicio = time.perf_counter()
+
+    for inicio_lote in range(1, total_registros + 1, tamano_lote):
+
+        fin_lote = min(
+            inicio_lote + tamano_lote,
+            total_registros + 1
+        )
+
+        datos = [
+            (i, f"Registro de prueba {i}")
+            for i in range(inicio_lote, fin_lote)
+        ]
+
+        cursor.executemany("""
+            INSERT INTO dbo.PruebaCarga100K
+            (ID, DESCRIPCION)
+            VALUES (?, ?)
+        """, datos)
 
     conn.commit()
 
+    tiempo = time.perf_counter() - inicio
+
     cursor.execute("""
         SELECT COUNT(*)
-        FROM dbo.PruebaCargaPython
+        FROM dbo.PruebaCarga100K
     """)
 
-    print("Registros insertados:", cursor.fetchone()[0])
+    cantidad = cursor.fetchone()[0]
 
-except Exception as e:
+    print("Registros insertados:", cantidad)
+    print("Tiempo total:", round(tiempo, 2), "segundos")
+    print(
+        "Velocidad:",
+        round(cantidad / tiempo, 0),
+        "registros/segundo"
+    )
+
+except Exception as error:
     conn.rollback()
-    print("Error:", e)
+    print("Error:", error)
 
 finally:
     cursor.close()
