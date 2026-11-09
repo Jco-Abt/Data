@@ -1,28 +1,20 @@
-Saltó esto:
-Procesados: 9,060,000 | Insertados: 9,060,000 | Rechazados: 0
-Traceback (most recent call last):
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\Carga_IQVIA_DDD_Completa.py", line 462, in ejecutar_carga
-    insertar_lote(
-    ~~~~~~~~~~~~~^
-        cursor,
-        ^^^^^^^
-    ...<2 lines>...
-        registros_error
-        ^^^^^^^^^^^^^^^
-    )
-    ^
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\Carga_IQVIA_DDD_Completa.py", line 304, in insertar_lote
-    cursor.executemany(SQL_INSERT_STAGING, registros_validos)
-    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-pyodbc.OperationalError: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]TCP Provider: Se ha forzado la interrupción de una conexión existente por el host remoto.\r\n (10054) (SQLExecute); [08S01] [Microsoft][ODBC Driver 18 for SQL Server]Communication link failure (10054)')
+SELECT
+    LOAD_RUN_ID,
+    COUNT_BIG(*) AS TOTAL_INSERTADOS,
+    MIN(SOURCE_ROW_NUMBER) AS PRIMERA_FILA,
+    MAX(SOURCE_ROW_NUMBER) AS ULTIMA_FILA,
+    COUNT_BIG(DISTINCT SOURCE_ROW_NUMBER) AS FILAS_DISTINTAS,
+    MIN(LOADED_AT) AS INICIO_CARGA,
+    MAX(LOADED_AT) AS ULTIMO_LOTE
+FROM dbo.Stg_DDD
+WHERE AUDIT_DATE = '2026-09-01'
+  AND SOURCE_FILE = 'Dataset_ddd_202609.txt'
+GROUP BY LOAD_RUN_ID;
 
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\Carga_IQVIA_DDD_Completa.py", line 540, in <module>
-    ejecutar_carga()
-    ~~~~~~~~~~~~~~^^
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\Carga_IQVIA_DDD_Completa.py", line 523, in ejecutar_carga
-    conexion.rollback()
-    ~~~~~~~~~~~~~~~~~^^
-pyodbc.OperationalError: ('08S01', '[08S01] [Microsoft][ODBC Driver 18 for SQL Server]Communication link failure (-2147467259) (SQLEndTran)')
+SELECT
+    LOAD_RUN_ID,
+    COUNT_BIG(*) AS REGISTROS_RECHAZADOS
+FROM dbo.Log_Errores_DDD
+WHERE AUDIT_DATE = '2026-09-01'
+  AND SOURCE_FILE = 'Dataset_ddd_202609.txt'
+GROUP BY LOAD_RUN_ID;
