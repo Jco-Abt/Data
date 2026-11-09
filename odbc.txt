@@ -1,7 +1,24 @@
+import pyodbc
+
+conexion = pyodbc.connect(CONNECTION_STRING)
+cursor = conexion.cursor()
+
+load_run_id = "cee51a5c-c0b4-49dd-b736-dc187f19ba30"
+
+tipo_cambio = obtener_tipo_cambio(cursor)
+
+calcular_usd_corporativo(
+    cursor,
+    load_run_id,
+    tipo_cambio
+)
+
+cursor.close()
+conexion.close()
+
 SELECT
-    COUNT_BIG(*) AS TOTAL,
-    COUNT(TIPO_CAMBIO_CORP) AS TC_ASIGNADO,
-    COUNT(USD_CORPORATIVO) AS USD_CALCULADO
+    COUNT_BIG(*) AS TOTAL_REGISTROS,
+    SUM(CASE WHEN TIPO_CAMBIO_CORP IS NULL THEN 1 ELSE 0 END) AS TC_PENDIENTE,
+    SUM(CASE WHEN USD_CORPORATIVO IS NULL THEN 1 ELSE 0 END) AS USD_PENDIENTE
 FROM dbo.Stg_DDD_Prueba_TC_DECIMAL
-WHERE LOAD_RUN_ID =
-    'cee51a5c-c0b4-49dd-b736-dc187f19ba30';
+WHERE LOAD_RUN_ID = 'cee51a5c-c0b4-49dd-b736-dc187f19ba30';
