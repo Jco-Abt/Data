@@ -1,330 +1,80 @@
-
-import csv
-from decimal import Decimal, InvalidOperation
-from collections import defaultdict
-from pathlib import Path
-
-# ==========================================================
-# 1. CONFIGURACIÓN
-# ==========================================================
-
-ARCHIVO = r"C:\RUTA\Dataset_ddd.txt"
-
-LIMITE_REGISTROS = 100_000
-
-ENCABEZADOS_ESPERADOS = [
-    "BRICK_COD",
-    "PACKS",
-    "IDPERIODO",
-    "SOLES",
-    "UN",
-    "USD",
-    "UNIDAD_CUENTA"
-]
-
-COLUMNAS_NUMERICAS = [
-    "BRICK_COD",
-    "IDPERIODO",
-    "SOLES",
-    "UN",
-    "USD",
-    "UNIDAD_CUENTA"
-]
-
-# ==========================================================
-# 2. CONTADORES Y VARIABLES
-# ==========================================================
-
-total = 0
-
-notacion_cientifica = defaultdict(int)
-valores_invalidos = defaultdict(int)
-
-max_decimales = defaultdict(int)
-max_digitos_enteros = defaultdict(int)
-max_digitos_totales = defaultdict(int)
-
-ejemplos_invalidos = defaultdict(list)
-
-filas_estructura_invalida = 0
-error_encabezados = False
-
-# ==========================================================
-# 3. FUNCIÓN DE ANÁLISIS NUMÉRICO
-# ==========================================================
-
-def analizar_decimal(valor):
-
-    valor = valor.strip()
-
-    if not valor:
-        raise ValueError("Valor vacío")
-
-    numero = Decimal(valor)
-
-    if not numero.is_finite():
-        raise ValueError("Número no finito")
-
-    # Cantidad de posiciones decimales
-    decimales = max(
-        0,
-        -numero.as_tuple().exponent
-    )
-
-    # Cantidad de dígitos enteros
-    if numero == 0:
-        digitos_enteros = 1
-    else:
-        digitos_enteros = max(
-            0,
-            numero.copy_abs().adjusted() + 1
-        )
-
-    # Precisión total requerida
-    digitos_totales = digitos_enteros + decimales
-
-    return numero, decimales, digitos_enteros, digitos_totales
-
-# ==========================================================
-# 4. VALIDAR ARCHIVO
-# ==========================================================
-
-ruta = Path(ARCHIVO)
-
-if not ruta.exists():
-    raise FileNotFoundError(
-        f"No existe el archivo: {ruta}"
-    )
-
-print("Iniciando diagnóstico IQVIA DDD...")
-print(f"Archivo: {ruta.name}")
-print(f"Límite de registros: {LIMITE_REGISTROS:,}")
-
-# ==========================================================
-# 5. LECTURA Y ANÁLISIS
-# ==========================================================
-
-with open(
-    ruta,
-    "r",
-    encoding="utf-8-sig",
-    newline=""
-) as archivo:
-
-    lector = csv.DictReader(
-        archivo,
-        delimiter=","
-    )
-
-    # Validar encabezados
-    if lector.fieldnames != ENCABEZADOS_ESPERADOS:
-
-        error_encabezados = True
-
-        raise ValueError(
-            "\nLos encabezados del archivo no coinciden.\n"
-            f"Esperados: {ENCABEZADOS_ESPERADOS}\n"
-            f"Encontrados: {lector.fieldnames}"
-        )
-
-    for fila in lector:
-
-        if total >= LIMITE_REGISTROS:
-            break
-
-        total += 1
-
-        # Validar estructura de fila
-        if (
-            None in fila
-            or any(valor is None for valor in fila.values())
-        ):
-
-            filas_estructura_invalida += 1
-            continue
-
-        # Analizar cada campo numérico
-        for columna in COLUMNAS_NUMERICAS:
-
-            valor = fila[columna].strip()
-
-            try:
-
-                (
-                    numero,
-                    decimales,
-                    digitos_enteros,
-                    digitos_totales
-                ) = analizar_decimal(valor)
-
-                # Detectar notación científica
-                if "e" in valor.lower():
-
-                    notacion_cientifica[columna] += 1
-
-                # Máximo de decimales
-                max_decimales[columna] = max(
-                    max_decimales[columna],
-                    decimales
-                )
-
-                # Máximo de dígitos enteros
-                max_digitos_enteros[columna] = max(
-                    max_digitos_enteros[columna],
-                    digitos_enteros
-                )
-
-                # Máxima precisión total
-                max_digitos_totales[columna] = max(
-                    max_digitos_totales[columna],
-                    digitos_totales
-                )
-
-            except (InvalidOperation, ValueError) as error:
-
-                valores_invalidos[columna] += 1
-
-                # Guardar máximo 5 ejemplos por columna
-                if len(ejemplos_invalidos[columna]) < 5:
-
-                    ejemplos_invalidos[columna].append(
-                        {
-                            "fila": total + 1,
-                            "motivo": str(error),
-                            "valor": valor[:100]
-                        }
-                    )
-
-# ==========================================================
-# 6. PRESENTAR RESULTADOS
-# ==========================================================
-
-print("\n")
-print("=" * 65)
-print("             DIAGNÓSTICO IQVIA DDD")
-print("=" * 65)
-
-print(f"\nRegistros analizados: {total:,}")
-
-print(
-    "Filas con estructura incorrecta: "
-    f"{filas_estructura_invalida:,}"
-)
-
-print("\n" + "-" * 65)
-print("NOTACIÓN CIENTÍFICA")
-print("-" * 65)
-
-for columna in COLUMNAS_NUMERICAS:
-
-    print(
-        f"{columna:<20}: "
-        f"{notacion_cientifica[columna]:,}"
-    )
-
-print("\n" + "-" * 65)
-print("VALORES NUMÉRICOS INVÁLIDOS")
-print("-" * 65)
-
-for columna in COLUMNAS_NUMERICAS:
-
-    print(
-        f"{columna:<20}: "
-        f"{valores_invalidos[columna]:,}"
-    )
-
-print("\n" + "-" * 65)
-print("MÁXIMO DE POSICIONES DECIMALES")
-print("-" * 65)
-
-for columna in COLUMNAS_NUMERICAS:
-
-    print(
-        f"{columna:<20}: "
-        f"{max_decimales[columna]}"
-    )
-
-print("\n" + "-" * 65)
-print("MÁXIMO DE DÍGITOS ENTEROS")
-print("-" * 65)
-
-for columna in COLUMNAS_NUMERICAS:
-
-    print(
-        f"{columna:<20}: "
-        f"{max_digitos_enteros[columna]}"
-    )
-
-print("\n" + "-" * 65)
-print("PRECISIÓN TOTAL REQUERIDA")
-print("-" * 65)
-
-for columna in COLUMNAS_NUMERICAS:
-
-    print(
-        f"{columna:<20}: "
-        f"{max_digitos_totales[columna]}"
-    )
-
-# ==========================================================
-# 7. EJEMPLOS DE VALORES INVÁLIDOS
-# ==========================================================
-
-print("\n" + "-" * 65)
-print("EJEMPLOS DE VALORES INVÁLIDOS")
-print("-" * 65)
-
-hay_invalidos = False
-
-for columna in COLUMNAS_NUMERICAS:
-
-    if ejemplos_invalidos[columna]:
-
-        hay_invalidos = True
-
-        print(f"\nColumna: {columna}")
-
-        for ejemplo in ejemplos_invalidos[columna]:
-
-            print(
-                f"Fila {ejemplo['fila']}: "
-                f"{ejemplo['valor']} | "
-                f"{ejemplo['motivo']}"
-            )
-
-if not hay_invalidos:
-
-    print("No se encontraron valores numéricos inválidos.")
-
-# ==========================================================
-# 8. EVALUACIÓN DE DECIMAL(38,18)
-# ==========================================================
-
-print("\n" + "-" * 65)
-print("EVALUACIÓN DECIMAL(38,18)")
-print("-" * 65)
-
-for columna in COLUMNAS_NUMERICAS:
-
-    enteros = max_digitos_enteros[columna]
-    decimales = max_decimales[columna]
-
-    compatible = (
-        enteros <= 20
-        and decimales <= 18
-    )
-
-    estado = (
-        "COMPATIBLE"
-        if compatible
-        else "REVISAR PRECISIÓN"
-    )
-
-    print(
-        f"{columna:<20}: {estado} "
-        f"(enteros={enteros}, decimales={decimales})"
-    )
-
-print("\n" + "=" * 65)
-print("             FIN DEL DIAGNÓSTICO")
-print("=" * 65)
+Iniciando diagnóstico IQVIA DDD...
+Archivo: Dataset_ddd_202609.txt
+Límite de registros: 100,000
+
+
+=================================================================
+             DIAGNÓSTICO IQVIA DDD
+=================================================================
+
+Registros analizados: 100,000
+Filas con estructura incorrecta: 0
+
+-----------------------------------------------------------------
+NOTACIÓN CIENTÍFICA
+-----------------------------------------------------------------
+BRICK_COD           : 0
+IDPERIODO           : 0
+SOLES               : 2
+UN                  : 0
+USD                 : 22
+UNIDAD_CUENTA       : 0
+
+-----------------------------------------------------------------
+VALORES NUMÉRICOS INVÁLIDOS
+-----------------------------------------------------------------
+BRICK_COD           : 0
+IDPERIODO           : 0
+SOLES               : 0
+UN                  : 0
+USD                 : 0
+UNIDAD_CUENTA       : 0
+
+-----------------------------------------------------------------
+MÁXIMO DE POSICIONES DECIMALES
+-----------------------------------------------------------------
+BRICK_COD           : 0
+IDPERIODO           : 0
+SOLES               : 18
+UN                  : 0
+USD                 : 18
+UNIDAD_CUENTA       : 17
+
+-----------------------------------------------------------------
+MÁXIMO DE DÍGITOS ENTEROS
+-----------------------------------------------------------------
+BRICK_COD           : 4
+IDPERIODO           : 2
+SOLES               : 7
+UN                  : 6
+USD                 : 6
+UNIDAD_CUENTA       : 8
+
+-----------------------------------------------------------------
+PRECISIÓN TOTAL REQUERIDA
+-----------------------------------------------------------------
+BRICK_COD           : 4
+IDPERIODO           : 2
+SOLES               : 18
+UN                  : 6
+USD                 : 18
+UNIDAD_CUENTA       : 17
+
+-----------------------------------------------------------------
+EJEMPLOS DE VALORES INVÁLIDOS
+-----------------------------------------------------------------
+No se encontraron valores numéricos inválidos.
+
+-----------------------------------------------------------------
+EVALUACIÓN DECIMAL(38,18)
+-----------------------------------------------------------------
+BRICK_COD           : COMPATIBLE (enteros=4, decimales=0)
+IDPERIODO           : COMPATIBLE (enteros=2, decimales=0)
+SOLES               : COMPATIBLE (enteros=7, decimales=18)
+UN                  : COMPATIBLE (enteros=6, decimales=0)
+USD                 : COMPATIBLE (enteros=6, decimales=18)
+UNIDAD_CUENTA       : COMPATIBLE (enteros=8, decimales=17)
+
+=================================================================
+             FIN DEL DIAGNÓSTICO
+=================================================================
