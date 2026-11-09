@@ -1,54 +1,7 @@
-=================================================================
-INICIO DE CARGA IQVIA DDD
-=================================================================
-Archivo: Dataset_ddd_202609.txt
-Auditoría: 2026-09-01
-LOAD_RUN_ID: cee51a5c-c0b4-49dd-b736-dc187f19ba30
-Límite: 100,000
-Tipo de cambio corporativo 2026: 3.68
-
-Comenzando lectura e inserción...
-
-Procesados: 5,000 | Insertados: 5,000 | Rechazados: 0
-Procesados: 10,000 | Insertados: 10,000 | Rechazados: 0
-Procesados: 15,000 | Insertados: 15,000 | Rechazados: 0
-Procesados: 20,000 | Insertados: 20,000 | Rechazados: 0
-Procesados: 25,000 | Insertados: 25,000 | Rechazados: 0
-Procesados: 30,000 | Insertados: 30,000 | Rechazados: 0
-Procesados: 35,000 | Insertados: 35,000 | Rechazados: 0
-Procesados: 40,000 | Insertados: 40,000 | Rechazados: 0
-Procesados: 45,000 | Insertados: 45,000 | Rechazados: 0
-Procesados: 50,000 | Insertados: 50,000 | Rechazados: 0
-Procesados: 55,000 | Insertados: 55,000 | Rechazados: 0
-Procesados: 60,000 | Insertados: 60,000 | Rechazados: 0
-Procesados: 65,000 | Insertados: 65,000 | Rechazados: 0
-Procesados: 70,000 | Insertados: 70,000 | Rechazados: 0
-Procesados: 75,000 | Insertados: 75,000 | Rechazados: 0
-Procesados: 80,000 | Insertados: 80,000 | Rechazados: 0
-Procesados: 85,000 | Insertados: 85,000 | Rechazados: 0
-Procesados: 90,000 | Insertados: 90,000 | Rechazados: 0
-Procesados: 95,000 | Insertados: 95,000 | Rechazados: 0
-Procesados: 100,000 | Insertados: 100,000 | Rechazados: 0
-
-Calculando USD corporativo en SQL Server...
-
-ERROR DURANTE LA CARGA
-La ejecución puede contener lotes previamente confirmados.
-LOAD_RUN_ID: cee51a5c-c0b4-49dd-b736-dc187f19ba30
-Traceback (most recent call last):
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\carga_iqvia_ddd.py", line 654, in <module>
-    ejecutar_carga()
-    ~~~~~~~~~~~~~~^^
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\carga_iqvia_ddd.py", line 606, in ejecutar_carga
-    calcular_usd_corporativo(
-    ~~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor,
-        ^^^^^^^
-        load_run_id
-        ^^^^^^^^^^^
-    )
-    ^
-  File "c:\Users\covenjx2\OneDrive - Abbott\Documentos\Python\DataDirecciones\carga_iqvia_ddd.py", line 412, in calcular_usd_corporativo
-    cursor.execute(sql, load_run_id)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-pyodbc.ProgrammingError: ('42S02', "[42S02] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Invalid object name 'dbo.Config_TipoCambio'. (208) (SQLExecDirectW); [42S02] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Statement(s) could not be prepared. (8180)")
+SELECT
+    COUNT_BIG(*) AS TOTAL,
+    COUNT(TIPO_CAMBIO_CORP) AS TC_ASIGNADO,
+    COUNT(USD_CORPORATIVO) AS USD_CALCULADO
+FROM dbo.Stg_DDD_Prueba_TC_DECIMAL
+WHERE LOAD_RUN_ID =
+    'cee51a5c-c0b4-49dd-b736-dc187f19ba30';
