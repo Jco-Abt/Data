@@ -1,37 +1,126 @@
-CREATE TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
-(
-    LOAD_RUN_ID VARCHAR(36) NOT NULL,
-    SOURCE_ROW_NUMBER BIGINT NOT NULL,
-    SOURCE_FILE VARCHAR(260) NOT NULL,
-    AUDIT_DATE DATE NOT NULL,
 
-    BRICK_COD INT NOT NULL,
-    PACKS VARCHAR(50) NOT NULL,
-    IDPERIODO INT NOT NULL,
+import csv
+from decimal import Decimal, InvalidOperation
+from collections import defaultdict
+from pathlib import Path
 
-    SOLES DECIMAL(19,6) NOT NULL,
-    UN DECIMAL(19,6) NOT NULL,
-    USD_IQVIA DECIMAL(19,6) NOT NULL,
-    UNIDAD_CUENTA DECIMAL(19,6) NOT NULL,
+# ==========================================
+# CONFIGURACIÓN
+# ==========================================
 
-    TIPO_CAMBIO_CORP DECIMAL(10,4) NULL,
-    USD_CORPORATIVO DECIMAL(19,6) NULL,
+ARCHIVO = r"C:\RUTA\Dataset_ddd.txt"
+LIMITE_REGISTROS = 100_000
 
-    LOADED_AT DATETIME2 NOT NULL
-        DEFAULT SYSDATETIME()
-);
+COLUMNAS_NUMERICAS = [
+    "BRICK_COD",
+    "IDPERIODO",
+    "SOLES",
+    "UN",
+    "USD",
+    "UNIDAD_CUENTA"
+]
 
-CREATE TABLE dbo.Log_Errores_DDD
-(
-    LOAD_RUN_ID VARCHAR(36) NOT NULL,
-    SOURCE_ROW_NUMBER BIGINT NOT NULL,
-    SOURCE_FILE VARCHAR(260) NOT NULL,
-    AUDIT_DATE DATE NOT NULL,
+ENCABEZADOS_ESPERADOS = [
+    "BRICK_COD",
+    "PACKS",
+    "IDPERIODO",
+    "SOLES",
+    "UN",
+    "USD",
+    "UNIDAD_CUENTA"
+]
 
-    ERROR_COLUMN VARCHAR(100) NULL,
-    ERROR_MESSAGE VARCHAR(1000) NULL,
-    RAW_ROW NVARCHAR(MAX) NULL,
+# ==========================================
+# CONTADORES
+# ==========================================
 
-    REJECTED_AT DATETIME2 NOT NULL
-        DEFAULT SYSDATETIME()
-);
+total = 0
+notacion_cientifica = defaultdict(int)
+valores_invalidos = defaultdict(int)
+max_decimales = defaultdict(int)
+filas_estructura_invalida = 0
+
+def analizar_decimal(valor):
+    valor = valor.strip()
+
+    if not valor:
+        raise ValueError("Valor vacío")
+
+    numero = Decimal(valor)
+
+    if not numero.is_finite():
+        raise ValueError("Valor no finito")
+
+    decimales = max(0, -numero.as_tuple().exponent)
+
+    return numero, decimales
+
+# ==========================================
+# LECTURA
+# ==========================================
+
+ruta = Path(ARCHIVO)
+
+if not ruta.exists():
+    raise FileNotFoundError(f"No existe el archivo: {ruta}")
+
+with open(ruta, "r", encoding="utf-8-sig", newline="") as archivo:
+
+    lector = csv.DictReader(archivo, delimiter=",")
+
+    if lector.fieldnames != ENCABEZADOS_ESPERADOS:
+        raise ValueError(
+            f"Encabezados incorrectos: {lector.fieldnames}"
+        )
+
+    for fila in lector:
+
+        if total >= LIMITE_REGISTROS:
+            break
+
+        total += 1
+
+        if None in fila or any(v is None for v in fila.values()):
+            filas_estructura_invalida += 1
+            continue
+
+        for columna in COLUMNAS_NUMERICAS:
+
+            valor = fila[columna].strip()
+
+            try:
+                numero, decimales = analizar_decimal(valor)
+
+                max_decimales[columna] = max(
+                    max_decimales[columna],
+                    decimales
+                )
+
+                if "e" in valor.lower():
+                    notacion_cientifica[columna] += 1
+
+            except (InvalidOperation, ValueError):
+                valores_invalidos[columna] += 1
+
+# ==========================================
+# RESULTADOS
+# ==========================================
+
+print("\n========== DIAGNÓSTICO IQVIA DDD ==========")
+
+print(f"Registros analizados: {total:,}")
+print(f"Filas con estructura incorrecta: {filas_estructura_invalida:,}")
+
+print("\nNOTACIÓN CIENTÍFICA:")
+for columna in COLUMNAS_NUMERICAS:
+    print(f"{columna}: {notacion_cientifica[columna]:,}")
+
+print("\nVALORES INVÁLIDOS:")
+for columna in COLUMNAS_NUMERICAS:
+    print(f"{columna}: {valores_invalidos[columna]:,}")
+
+print("\nMÁXIMO DE POSICIONES DECIMALES:")
+for columna in COLUMNAS_NUMERICAS:
+    print(f"{columna}: {max_decimales[columna]}")
+
+print("\n========== FIN DEL DIAGNÓSTICO ==========")
