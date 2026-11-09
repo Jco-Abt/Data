@@ -1,53 +1,17 @@
-=================================================================
-DIAGNÓSTICO COMPLETO IQVIA DDD
-=================================================================
+ALTER TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
+ALTER COLUMN IDPERIODO TINYINT NOT NULL;
 
-Total de registros: 37,487,128
-Filas con estructura incorrecta: 0
+ALTER TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
+ALTER COLUMN SOLES DECIMAL(30,19) NOT NULL;
 
---- NOTACIÓN CIENTÍFICA ---
-BRICK_COD           : 0
-IDPERIODO           : 0
-SOLES               : 1,517
-UN                  : 0
-USD                 : 11,621
-UNIDAD_CUENTA       : 0
+ALTER TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
+ALTER COLUMN UN DECIMAL(30,19) NOT NULL;
 
---- VALORES INVÁLIDOS ---
-BRICK_COD           : 0
-IDPERIODO           : 0
-SOLES               : 0
-UN                  : 0
-USD                 : 0
-UNIDAD_CUENTA       : 0
+ALTER TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
+ALTER COLUMN USD_IQVIA DECIMAL(30,19) NOT NULL;
 
---- MÁXIMO DE DECIMALES ---
-BRICK_COD           : 0
-IDPERIODO           : 0
-SOLES               : 18
-UN                  : 16
-USD                 : 19
-UNIDAD_CUENTA       : 17
+ALTER TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
+ALTER COLUMN UNIDAD_CUENTA DECIMAL(30,19) NOT NULL;
 
---- MÁXIMO DE DÍGITOS ENTEROS ---
-BRICK_COD           : 4
-IDPERIODO           : 2
-SOLES               : 7
-UN                  : 6
-USD                 : 7
-UNIDAD_CUENTA       : 9
-
---- MAGNITUD MÁXIMA ABSOLUTA ---
-BRICK_COD           : 9330
-IDPERIODO           : 60
-SOLES               : 9321255.7499999981
-UN                  : 833124
-USD                 : 2320666.4377987534
-UNIDAD_CUENTA       : 188399000
-
---- EJEMPLOS DE ERRORES ---
-No se encontraron errores numéricos.
-
-=================================================================
-FIN DEL ANÁLISIS
-=================================================================
+ALTER TABLE dbo.Stg_DDD_Prueba_TC_DECIMAL
+ALTER COLUMN USD_CORPORATIVO DECIMAL(30,19) NULL;
