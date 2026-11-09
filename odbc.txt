@@ -1,126 +1,29 @@
+========== DIAGNÓSTICO IQVIA DDD ==========
+Registros analizados: 100,000
+Filas con estructura incorrecta: 0
 
-import csv
-from decimal import Decimal, InvalidOperation
-from collections import defaultdict
-from pathlib import Path
+NOTACIÓN CIENTÍFICA:
+BRICK_COD: 0
+IDPERIODO: 0
+SOLES: 2
+UN: 0
+USD: 22
+UNIDAD_CUENTA: 0
 
-# ==========================================
-# CONFIGURACIÓN
-# ==========================================
+VALORES INVÁLIDOS:
+BRICK_COD: 0
+IDPERIODO: 0
+SOLES: 0
+UN: 0
+USD: 0
+UNIDAD_CUENTA: 0
 
-ARCHIVO = r"C:\RUTA\Dataset_ddd.txt"
-LIMITE_REGISTROS = 100_000
+MÁXIMO DE POSICIONES DECIMALES:
+BRICK_COD: 0
+IDPERIODO: 0
+SOLES: 18
+UN: 0
+USD: 18
+UNIDAD_CUENTA: 17
 
-COLUMNAS_NUMERICAS = [
-    "BRICK_COD",
-    "IDPERIODO",
-    "SOLES",
-    "UN",
-    "USD",
-    "UNIDAD_CUENTA"
-]
-
-ENCABEZADOS_ESPERADOS = [
-    "BRICK_COD",
-    "PACKS",
-    "IDPERIODO",
-    "SOLES",
-    "UN",
-    "USD",
-    "UNIDAD_CUENTA"
-]
-
-# ==========================================
-# CONTADORES
-# ==========================================
-
-total = 0
-notacion_cientifica = defaultdict(int)
-valores_invalidos = defaultdict(int)
-max_decimales = defaultdict(int)
-filas_estructura_invalida = 0
-
-def analizar_decimal(valor):
-    valor = valor.strip()
-
-    if not valor:
-        raise ValueError("Valor vacío")
-
-    numero = Decimal(valor)
-
-    if not numero.is_finite():
-        raise ValueError("Valor no finito")
-
-    decimales = max(0, -numero.as_tuple().exponent)
-
-    return numero, decimales
-
-# ==========================================
-# LECTURA
-# ==========================================
-
-ruta = Path(ARCHIVO)
-
-if not ruta.exists():
-    raise FileNotFoundError(f"No existe el archivo: {ruta}")
-
-with open(ruta, "r", encoding="utf-8-sig", newline="") as archivo:
-
-    lector = csv.DictReader(archivo, delimiter=",")
-
-    if lector.fieldnames != ENCABEZADOS_ESPERADOS:
-        raise ValueError(
-            f"Encabezados incorrectos: {lector.fieldnames}"
-        )
-
-    for fila in lector:
-
-        if total >= LIMITE_REGISTROS:
-            break
-
-        total += 1
-
-        if None in fila or any(v is None for v in fila.values()):
-            filas_estructura_invalida += 1
-            continue
-
-        for columna in COLUMNAS_NUMERICAS:
-
-            valor = fila[columna].strip()
-
-            try:
-                numero, decimales = analizar_decimal(valor)
-
-                max_decimales[columna] = max(
-                    max_decimales[columna],
-                    decimales
-                )
-
-                if "e" in valor.lower():
-                    notacion_cientifica[columna] += 1
-
-            except (InvalidOperation, ValueError):
-                valores_invalidos[columna] += 1
-
-# ==========================================
-# RESULTADOS
-# ==========================================
-
-print("\n========== DIAGNÓSTICO IQVIA DDD ==========")
-
-print(f"Registros analizados: {total:,}")
-print(f"Filas con estructura incorrecta: {filas_estructura_invalida:,}")
-
-print("\nNOTACIÓN CIENTÍFICA:")
-for columna in COLUMNAS_NUMERICAS:
-    print(f"{columna}: {notacion_cientifica[columna]:,}")
-
-print("\nVALORES INVÁLIDOS:")
-for columna in COLUMNAS_NUMERICAS:
-    print(f"{columna}: {valores_invalidos[columna]:,}")
-
-print("\nMÁXIMO DE POSICIONES DECIMALES:")
-for columna in COLUMNAS_NUMERICAS:
-    print(f"{columna}: {max_decimales[columna]}")
-
-print("\n========== FIN DEL DIAGNÓSTICO ==========")
+========== FIN DEL DIAGNÓSTICO ==========
