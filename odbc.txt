@@ -1,80 +1,191 @@
-Iniciando diagnóstico IQVIA DDD...
-Archivo: Dataset_ddd_202609.txt
-Límite de registros: 100,000
 
+import csv
+from decimal import Decimal, InvalidOperation
+from collections import defaultdict
+from pathlib import Path
 
-=================================================================
-             DIAGNÓSTICO IQVIA DDD
-=================================================================
+# =====================================================
+# CONFIGURACIÓN
+# =====================================================
 
-Registros analizados: 100,000
-Filas con estructura incorrecta: 0
+ARCHIVO = r"C:\RUTA\Dataset_ddd_202609.txt"
 
------------------------------------------------------------------
-NOTACIÓN CIENTÍFICA
------------------------------------------------------------------
-BRICK_COD           : 0
-IDPERIODO           : 0
-SOLES               : 2
-UN                  : 0
-USD                 : 22
-UNIDAD_CUENTA       : 0
+ENCABEZADOS = [
+    "BRICK_COD",
+    "PACKS",
+    "IDPERIODO",
+    "SOLES",
+    "UN",
+    "USD",
+    "UNIDAD_CUENTA"
+]
 
------------------------------------------------------------------
-VALORES NUMÉRICOS INVÁLIDOS
------------------------------------------------------------------
-BRICK_COD           : 0
-IDPERIODO           : 0
-SOLES               : 0
-UN                  : 0
-USD                 : 0
-UNIDAD_CUENTA       : 0
+COLUMNAS = [
+    "BRICK_COD",
+    "IDPERIODO",
+    "SOLES",
+    "UN",
+    "USD",
+    "UNIDAD_CUENTA"
+]
 
------------------------------------------------------------------
-MÁXIMO DE POSICIONES DECIMALES
------------------------------------------------------------------
-BRICK_COD           : 0
-IDPERIODO           : 0
-SOLES               : 18
-UN                  : 0
-USD                 : 18
-UNIDAD_CUENTA       : 17
+# =====================================================
+# CONTADORES
+# =====================================================
 
------------------------------------------------------------------
-MÁXIMO DE DÍGITOS ENTEROS
------------------------------------------------------------------
-BRICK_COD           : 4
-IDPERIODO           : 2
-SOLES               : 7
-UN                  : 6
-USD                 : 6
-UNIDAD_CUENTA       : 8
+total = 0
+filas_incorrectas = 0
 
------------------------------------------------------------------
-PRECISIÓN TOTAL REQUERIDA
------------------------------------------------------------------
-BRICK_COD           : 4
-IDPERIODO           : 2
-SOLES               : 18
-UN                  : 6
-USD                 : 18
-UNIDAD_CUENTA       : 17
+notacion_cientifica = defaultdict(int)
+invalidos = defaultdict(int)
+max_decimales = defaultdict(int)
+max_enteros = defaultdict(int)
+max_valor = defaultdict(lambda: Decimal("0"))
 
------------------------------------------------------------------
-EJEMPLOS DE VALORES INVÁLIDOS
------------------------------------------------------------------
-No se encontraron valores numéricos inválidos.
+ejemplos_invalidos = defaultdict(list)
 
------------------------------------------------------------------
-EVALUACIÓN DECIMAL(38,18)
------------------------------------------------------------------
-BRICK_COD           : COMPATIBLE (enteros=4, decimales=0)
-IDPERIODO           : COMPATIBLE (enteros=2, decimales=0)
-SOLES               : COMPATIBLE (enteros=7, decimales=18)
-UN                  : COMPATIBLE (enteros=6, decimales=0)
-USD                 : COMPATIBLE (enteros=6, decimales=18)
-UNIDAD_CUENTA       : COMPATIBLE (enteros=8, decimales=17)
+# =====================================================
+# ANÁLISIS NUMÉRICO
+# =====================================================
 
-=================================================================
-             FIN DEL DIAGNÓSTICO
-=================================================================
+def analizar(valor):
+
+    valor = valor.strip()
+
+    if not valor:
+        raise ValueError("Valor vacío")
+
+    numero = Decimal(valor)
+
+    if not numero.is_finite():
+        raise ValueError("Número no finito")
+
+    decimales = max(0, -numero.as_tuple().exponent)
+
+    if numero == 0:
+        enteros = 1
+    else:
+        enteros = max(1, numero.copy_abs().adjusted() + 1)
+
+    return numero, decimales, enteros
+
+# =====================================================
+# VALIDAR ARCHIVO
+# =====================================================
+
+ruta = Path(ARCHIVO)
+
+if not ruta.exists():
+    raise FileNotFoundError(ruta)
+
+print("Iniciando análisis completo...")
+print("Archivo:", ruta.name)
+
+# =====================================================
+# PROCESAMIENTO
+# =====================================================
+
+with open(
+    ruta,
+    "r",
+    encoding="utf-8-sig",
+    newline=""
+) as archivo:
+
+    lector = csv.DictReader(archivo, delimiter=",")
+
+    if lector.fieldnames != ENCABEZADOS:
+        raise ValueError(
+            f"Encabezados incorrectos: {lector.fieldnames}"
+        )
+
+    for fila in lector:
+
+        total += 1
+
+        if (
+            None in fila
+            or any(v is None for v in fila.values())
+        ):
+            filas_incorrectas += 1
+            continue
+
+        for columna in COLUMNAS:
+
+            valor = fila[columna].strip()
+
+            try:
+
+                numero, decimales, enteros = analizar(valor)
+
+                if "e" in valor.lower():
+                    notacion_cientifica[columna] += 1
+
+                max_decimales[columna] = max(
+                    max_decimales[columna],
+                    decimales
+                )
+
+                max_enteros[columna] = max(
+                    max_enteros[columna],
+                    enteros
+                )
+
+                max_valor[columna] = max(
+                    max_valor[columna],
+                    abs(numero)
+                )
+
+            except (InvalidOperation, ValueError) as error:
+
+                invalidos[columna] += 1
+
+                if len(ejemplos_invalidos[columna]) < 5:
+                    ejemplos_invalidos[columna].append(
+                        f"Fila {total + 1}: {valor[:100]} - {error}"
+                    )
+
+# =====================================================
+# RESULTADOS
+# =====================================================
+
+print("\n" + "=" * 65)
+print("DIAGNÓSTICO COMPLETO IQVIA DDD")
+print("=" * 65)
+
+print(f"\nTotal de registros: {total:,}")
+print(f"Filas con estructura incorrecta: {filas_incorrectas:,}")
+
+for titulo, datos in [
+    ("NOTACIÓN CIENTÍFICA", notacion_cientifica),
+    ("VALORES INVÁLIDOS", invalidos),
+    ("MÁXIMO DE DECIMALES", max_decimales),
+    ("MÁXIMO DE DÍGITOS ENTEROS", max_enteros)
+]:
+
+    print(f"\n--- {titulo} ---")
+
+    for columna in COLUMNAS:
+        print(f"{columna:<20}: {datos[columna]:,}")
+
+print("\n--- MAGNITUD MÁXIMA ABSOLUTA ---")
+
+for columna in COLUMNAS:
+    print(f"{columna:<20}: {max_valor[columna]}")
+
+print("\n--- EJEMPLOS DE ERRORES ---")
+
+hay_errores = False
+
+for columna, ejemplos in ejemplos_invalidos.items():
+
+    for ejemplo in ejemplos:
+        hay_errores = True
+        print(f"{columna}: {ejemplo}")
+
+if not hay_errores:
+    print("No se encontraron errores numéricos.")
+
+print("\n" + "=" * 65)
+print("FIN DEL ANÁLISIS")
+print("=" * 65)
